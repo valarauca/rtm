@@ -1,0 +1,3 @@
+var searchIndex = {};
+searchIndex["rtm"] = {"doc":"Intel RTM Extensions.","items":[[4,"Abort","rtm","Why the transaction aborted",null,null],[13,"Retry","","",0,null],[13,"Conflict","","",0,null],[13,"Capacity","","",0,null],[13,"Debug","","",0,null],[13,"Nested","","",0,null],[13,"Code","","",0,null],[13,"Undefined","","",0,null],[0,"tsx","","Raw extension bindings",null,null],[5,"_xbegin","rtm::tsx","",null,null],[5,"_xend","","",null,null],[5,"_xabort","","",null,null],[11,"clone","rtm","",0,{"inputs":[{"name":"self"}],"output":{"name":"abort"}}],[11,"fmt","","",0,{"inputs":[{"name":"self"},{"name":"formatter"}],"output":{"name":"result"}}]],"paths":[[4,"Abort"]]};
+initSearch(searchIndex);
