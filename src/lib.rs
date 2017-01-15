@@ -95,6 +95,70 @@ limitations under the License.
 #![no_std]
 #![feature(link_llvm_intrinsics)]
 
+
+
+/// Why the transaction aborted
+///
+/// This states the reason why.
+#[derive(Copy,Clone,Debug)]
+pub enum Abort{
+  Retry,
+  Conflict,
+  Capacity,
+  Debug,
+  Nested,
+  Code(i8),
+  Undefined
+}
+
+/// Aborts a transaction in progress.
+///
+/// This will unroll any and all
+/// writes that have taken place.
+///
+/// The argumen passed here will be
+/// returned as the `Err(Abort::Code(x))`
+/// value.
+#[inline(always)]
+pub fn abort(x: i8) {
+  unsafe{_xabort(x)};
+}
+
+/// Execute a transaction
+///
+/// This accepts data and a lambda function. It will return if the operations
+/// succeeded or not, and _how_ it failed if it did.
+#[inline(always)]
+pub fn transaction<R: Sync,F: Fn(&mut R)>(lambda: &F, data: &mut R) -> Result<(),Abort> {
+  //bit masks will be reduced to to constants at compile time
+  let explicit: i32 = 1 << 0;
+  let retry: i32 = 1 << 1;
+  let conflict: i32 = 1 << 2;
+  let capacity: i32 = 1 << 3;
+  let debug: i32 = 1 << 4;
+  let nested: i32 = 1 << 5;
+  let mut out: Result<(),Abort> = Ok(());
+  match unsafe{_xbegin()} {
+    -1 => {
+      lambda(data);
+    },
+    x if (x&retry) > 0 => out = Err(Abort::Retry),
+    x if (x&conflict) > 0 => out = Err(Abort::Conflict),
+    x if (x&capacity) > 0 => out = Err(Abort::Capacity),
+    x if (x&debug) > 0 => out = Err(Abort::Debug),
+    x if (x&nested) > 0 => out = Err(Abort::Nested),
+    x if (x&explicit) > 0 => {
+      out = Err(Abort::Code(((x >> 24) & 0xFF) as i8));
+    },
+    _ => out = Err(Abort::Undefined)
+  }; 
+  unsafe{_xend()};
+  out
+}
+
+
+
+
 /// Raw extension bindings
 ///
 /// If a developer would rather roll their own
@@ -123,70 +187,4 @@ pub mod tsx {
   }
 }
 pub use tsx::*;
-
-
-/// Why the transaction aborted
-///
-/// This states the reason why.
-#[derive(Copy,Clone,Debug)]
-pub enum Abort{
-  Retry,
-  Conflict,
-  Capacity,
-  Debug,
-  Nested,
-  Code(i8),
-  Undefined
-}
-
-/// Aborts a transaction in progress.
-///
-/// This will unroll any and all
-/// writes that have taken place.
-///
-/// The argumen passed here will be
-/// returned as the `Err(Abort::Code(x))`
-/// value.
-#[cfg(target_platform="x86_64")]
-#[inline(always)]
-pub fn abort(x: i8) {
-  _xabort(x);
-}
-
-/// Execute a transaction
-///
-/// This accepts data and a lambda function. It will return if the operations
-/// succeeded or not, and _how_ it failed if it did.
-#[cfg(target_platform="x86_64")]
-#[inline(always)]
-pub fn transaction<R: Sync,F: Fn(&mut R)>(lambda: &F, data: &mut R) -> Result<(),Abort> {
-  //bit masks will be reduced to to constants at compile time
-  let explicit: i32 = 1 << 0;
-  let retry: i32 = 1 << 1;
-  let conflict: i32 = 1 << 2;
-  let capacity: i32 = 1 << 3;
-  let debug: i32 = 1 << 4;
-  let nested: i32 = 1 << 5;
-  let mut out: Result<(),Abort<T>> = Ok(());
-  match _xbegin() {
-    -1 => {
-      lambda(data);
-    },
-    x if (x&retry) > 0 => out = Err(Abort::Retry),
-    x if (x&conflict) > 0 => out = Err(Abort::Conflict),
-    x if (x&capacity) > 0 => out = Err(Abort::Capacity),
-    x if (x&debug) > 0 => out = Err(Abort::Debug),
-    x if (x&nested) > 0 => out = Err(Abort::Nested),
-    x if (x&explicit) > 0 => {
-      out = Err(Abort::Code(((x >> 24) & 0xFF) as u8));
-    },
-    _ => out = Err(Abort::Undefined)
-  }; 
-  _xend();
-  out
-}
-
-
-
-
 

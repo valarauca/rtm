@@ -233,8 +233,6 @@
 <span id="188">188</span>
 <span id="189">189</span>
 <span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
 Copyright 2017 William Cody Laeder
@@ -333,6 +331,70 @@ limitations under the License.
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>no_std</span>]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>link_llvm_intrinsics</span>)]</span>
 
+
+
+<span class='doccomment'>/// Why the transaction aborted</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// This states the reason why.</span>
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Copy</span>,<span class='ident'>Clone</span>,<span class='ident'>Debug</span>)]</span>
+<span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>Abort</span>{
+  <span class='ident'>Retry</span>,
+  <span class='ident'>Conflict</span>,
+  <span class='ident'>Capacity</span>,
+  <span class='ident'>Debug</span>,
+  <span class='ident'>Nested</span>,
+  <span class='ident'>Code</span>(<span class='ident'>i8</span>),
+  <span class='ident'>Undefined</span>
+}
+
+<span class='doccomment'>/// Aborts a transaction in progress.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// This will unroll any and all</span>
+<span class='doccomment'>/// writes that have taken place.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// The argumen passed here will be</span>
+<span class='doccomment'>/// returned as the `Err(Abort::Code(x))`</span>
+<span class='doccomment'>/// value.</span>
+<span class='attribute'>#[<span class='ident'>inline</span>(<span class='ident'>always</span>)]</span>
+<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>abort</span>(<span class='ident'>x</span>: <span class='ident'>i8</span>) {
+  <span class='kw'>unsafe</span>{<span class='ident'>_xabort</span>(<span class='ident'>x</span>)};
+}
+
+<span class='doccomment'>/// Execute a transaction</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// This accepts data and a lambda function. It will return if the operations</span>
+<span class='doccomment'>/// succeeded or not, and _how_ it failed if it did.</span>
+<span class='attribute'>#[<span class='ident'>inline</span>(<span class='ident'>always</span>)]</span>
+<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>transaction</span><span class='op'>&lt;</span><span class='ident'>R</span>: <span class='ident'>Sync</span>,<span class='ident'>F</span>: <span class='ident'>Fn</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>R</span>)<span class='op'>&gt;</span>(<span class='ident'>lambda</span>: <span class='kw-2'>&amp;</span><span class='ident'>F</span>, <span class='ident'>data</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>R</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>(),<span class='ident'>Abort</span><span class='op'>&gt;</span> {
+  <span class='comment'>//bit masks will be reduced to to constants at compile time</span>
+  <span class='kw'>let</span> <span class='ident'>explicit</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>0</span>;
+  <span class='kw'>let</span> <span class='ident'>retry</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>1</span>;
+  <span class='kw'>let</span> <span class='ident'>conflict</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>2</span>;
+  <span class='kw'>let</span> <span class='ident'>capacity</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>3</span>;
+  <span class='kw'>let</span> <span class='ident'>debug</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>4</span>;
+  <span class='kw'>let</span> <span class='ident'>nested</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>5</span>;
+  <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>out</span>: <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>(),<span class='ident'>Abort</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='prelude-val'>Ok</span>(());
+  <span class='kw'>match</span> <span class='kw'>unsafe</span>{<span class='ident'>_xbegin</span>()} {
+    <span class='op'>-</span><span class='number'>1</span> <span class='op'>=&gt;</span> {
+      <span class='ident'>lambda</span>(<span class='ident'>data</span>);
+    },
+    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>retry</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Retry</span>),
+    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>conflict</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Conflict</span>),
+    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>capacity</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Capacity</span>),
+    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>debug</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Debug</span>),
+    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>nested</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Nested</span>),
+    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>explicit</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> {
+      <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Code</span>(((<span class='ident'>x</span> <span class='op'>&gt;&gt;</span> <span class='number'>24</span>) <span class='op'>&amp;</span> <span class='number'>0xFF</span>) <span class='kw'>as</span> <span class='ident'>i8</span>));
+    },
+    _ <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Undefined</span>)
+  }; 
+  <span class='kw'>unsafe</span>{<span class='ident'>_xend</span>()};
+  <span class='ident'>out</span>
+}
+
+
+
+
 <span class='doccomment'>/// Raw extension bindings</span>
 <span class='doccomment'>///</span>
 <span class='doccomment'>/// If a developer would rather roll their own</span>
@@ -361,72 +423,6 @@ limitations under the License.
   }
 }
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>tsx</span>::<span class='kw-2'>*</span>;
-
-
-<span class='doccomment'>/// Why the transaction aborted</span>
-<span class='doccomment'>///</span>
-<span class='doccomment'>/// This states the reason why.</span>
-<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Copy</span>,<span class='ident'>Clone</span>,<span class='ident'>Debug</span>)]</span>
-<span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>Abort</span>{
-  <span class='ident'>Retry</span>,
-  <span class='ident'>Conflict</span>,
-  <span class='ident'>Capacity</span>,
-  <span class='ident'>Debug</span>,
-  <span class='ident'>Nested</span>,
-  <span class='ident'>Code</span>(<span class='ident'>i8</span>),
-  <span class='ident'>Undefined</span>
-}
-
-<span class='doccomment'>/// Aborts a transaction in progress.</span>
-<span class='doccomment'>///</span>
-<span class='doccomment'>/// This will unroll any and all</span>
-<span class='doccomment'>/// writes that have taken place.</span>
-<span class='doccomment'>///</span>
-<span class='doccomment'>/// The argumen passed here will be</span>
-<span class='doccomment'>/// returned as the `Err(Abort::Code(x))`</span>
-<span class='doccomment'>/// value.</span>
-<span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>target_platform</span><span class='op'>=</span><span class='string'>&quot;x86_64&quot;</span>)]</span>
-<span class='attribute'>#[<span class='ident'>inline</span>(<span class='ident'>always</span>)]</span>
-<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>abort</span>(<span class='ident'>x</span>: <span class='ident'>i8</span>) {
-  <span class='ident'>_xabort</span>(<span class='ident'>x</span>);
-}
-
-<span class='doccomment'>/// Execute a transaction</span>
-<span class='doccomment'>///</span>
-<span class='doccomment'>/// This accepts data and a lambda function. It will return if the operations</span>
-<span class='doccomment'>/// succeeded or not, and _how_ it failed if it did.</span>
-<span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>target_platform</span><span class='op'>=</span><span class='string'>&quot;x86_64&quot;</span>)]</span>
-<span class='attribute'>#[<span class='ident'>inline</span>(<span class='ident'>always</span>)]</span>
-<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>transaction</span><span class='op'>&lt;</span><span class='ident'>R</span>: <span class='ident'>Sync</span>,<span class='ident'>F</span>: <span class='ident'>Fn</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>R</span>)<span class='op'>&gt;</span>(<span class='ident'>lambda</span>: <span class='kw-2'>&amp;</span><span class='ident'>F</span>, <span class='ident'>data</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>R</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>(),<span class='ident'>Abort</span><span class='op'>&gt;</span> {
-  <span class='comment'>//bit masks will be reduced to to constants at compile time</span>
-  <span class='kw'>let</span> <span class='ident'>explicit</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>0</span>;
-  <span class='kw'>let</span> <span class='ident'>retry</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>1</span>;
-  <span class='kw'>let</span> <span class='ident'>conflict</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>2</span>;
-  <span class='kw'>let</span> <span class='ident'>capacity</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>3</span>;
-  <span class='kw'>let</span> <span class='ident'>debug</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>4</span>;
-  <span class='kw'>let</span> <span class='ident'>nested</span>: <span class='ident'>i32</span> <span class='op'>=</span> <span class='number'>1</span> <span class='op'>&lt;&lt;</span> <span class='number'>5</span>;
-  <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>out</span>: <span class='prelude-ty'>Result</span><span class='op'>&lt;</span>(),<span class='ident'>Abort</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;&gt;</span> <span class='op'>=</span> <span class='prelude-val'>Ok</span>(());
-  <span class='kw'>match</span> <span class='ident'>_xbegin</span>() {
-    <span class='op'>-</span><span class='number'>1</span> <span class='op'>=&gt;</span> {
-      <span class='ident'>lambda</span>(<span class='ident'>data</span>);
-    },
-    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>retry</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Retry</span>),
-    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>conflict</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Conflict</span>),
-    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>capacity</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Capacity</span>),
-    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>debug</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Debug</span>),
-    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>nested</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Nested</span>),
-    <span class='ident'>x</span> <span class='kw'>if</span> (<span class='ident'>x</span><span class='kw-2'>&amp;</span><span class='ident'>explicit</span>) <span class='op'>&gt;</span> <span class='number'>0</span> <span class='op'>=&gt;</span> {
-      <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Code</span>(((<span class='ident'>x</span> <span class='op'>&gt;&gt;</span> <span class='number'>24</span>) <span class='op'>&amp;</span> <span class='number'>0xFF</span>) <span class='kw'>as</span> <span class='ident'>u8</span>));
-    },
-    _ <span class='op'>=&gt;</span> <span class='ident'>out</span> <span class='op'>=</span> <span class='prelude-val'>Err</span>(<span class='ident'>Abort</span>::<span class='ident'>Undefined</span>)
-  }; 
-  <span class='ident'>_xend</span>();
-  <span class='ident'>out</span>
-}
-
-
-
-
 
 </pre>
 </section>

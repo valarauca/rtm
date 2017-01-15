@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Abort","Why the transaction aborted"]],"mod":[["tsx","Raw extension bindings"]]});
+initSidebarItems({"enum":[["Abort","Why the transaction aborted"]],"fn":[["abort","Aborts a transaction in progress."],["transaction","Execute a transaction"]],"mod":[["tsx","Raw extension bindings"]]});
