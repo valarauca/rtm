@@ -1,0 +1,12 @@
+[package]
+name = "rtm"
+version = "1.0.0"
+authors = ["William Cody Laeder <codylaeder@gmail.com>"]
+repository = "https://github.com/valarauca/rtm.git"
+homepage = "https://github.com/valarauca/rtm"
+description = "Intel's Transactional Synchronization"
+license = "Apache-2.0"
+readme = "README.md"
+documentation = "https://valarauca.github.io/rtm/rtm/index.html"
+keywords = ["rtm","amd64","transaction", "memory"]
+
